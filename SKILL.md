@@ -217,6 +217,8 @@ The launcher also installs automatic TTL cleanup for the proxy, `ttyd`, and temp
 - Enable `FORBID_REUSE_IF_AUTHENTICATED=1` by default for normal use; disable it only when reopening an already-authenticated session is intentional.
 - Treat the printed one-shot URL as sensitive until expiry.
 - Expect the proxy to reject mismatched `Host`, websocket `Origin`, or client IP when those checks are configured.
+- Do not suggest or launch browser-terminal modes casually from external messaging channels such as Telegram, Discord, Slack, or similar remote chat surfaces.
+- Prefer plain `tmux` handoff instead when the interaction happens over an external channel, unless the human explicitly confirms a trusted local-network setup and accepts the risk.
 
 ## References
 

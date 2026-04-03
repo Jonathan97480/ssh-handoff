@@ -62,6 +62,17 @@ Risk guidance:
 - do not use public tunnels or public reverse proxies for this workflow
 - prefer HTTPS/TLS if this is ever used beyond strictly trusted local conditions
 
+## External-channel caution
+
+Do not casually use browser-terminal modes from external messaging channels such as Telegram, Discord, Slack, or similar remote chat surfaces.
+
+In those contexts, prefer:
+
+- plain `tmux` handoff
+- or no browser terminal at all
+
+Only use browser-terminal modes when the human explicitly confirms that the setup is local or on a trusted LAN and understands the risk.
+
 ## Safety notes
 
 - keep it local-only by default
