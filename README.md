@@ -36,6 +36,32 @@ It supports three practical modes:
 
 Documentation examples may use `192.0.2.x` addresses. These are placeholder documentation-only IPs from the TEST-NET range and must be replaced with real local addresses.
 
+## Security posture
+
+This skill is best suited for:
+
+- localhost-only use
+- trusted LAN use with firewall restrictions
+- short-lived human-auth-first terminal handoff
+
+Risk guidance:
+
+- localhost: low to moderate risk
+- trusted filtered LAN: moderate risk
+- loosely controlled shared LAN: moderate to high risk
+- public internet exposure: high risk and not recommended
+
+## Recommended hardening
+
+- keep `ttyd` on localhost whenever possible
+- expose the frontend only to a trusted client IP when LAN access is required
+- keep TTLs short
+- treat one-shot URLs as sensitive until expiry
+- ask before replacing an existing live session
+- prefer `FORBID_REUSE_IF_AUTHENTICATED=1` for normal use
+- do not use public tunnels or public reverse proxies for this workflow
+- prefer HTTPS/TLS if this is ever used beyond strictly trusted local conditions
+
 ## Safety notes
 
 - keep it local-only by default
