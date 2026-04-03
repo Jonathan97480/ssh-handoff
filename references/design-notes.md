@@ -2,64 +2,83 @@
 
 ## Goal
 
-Allow a user to authenticate in a browser-opened terminal without changing the OpenClaw UI, while keeping the terminal local and temporary.
+Allow a human to authenticate in a browser-opened terminal while keeping the terminal temporary, local or LAN-scoped, and tied to a `tmux` session that preserves shell state for the agent.
 
 ## Security envelope
 
 Default requirements:
 
-- bind server to `127.0.0.1` only
-- use a random high port
-- require a temporary token or password
-- use a tmux session as the actual terminal state holder
-- stop the web-terminal process after the task
-- never expose through a public tunnel, reverse proxy, or external host without explicit user approval
+- bind to `127.0.0.1` by default when remote browser access is not needed
+- use short-lived access material such as a temporary token or password
+- keep `tmux` as the real terminal state holder
+- shut down the temporary web terminal after the task or at TTL expiry
+- avoid public tunnels, public reverse proxies, and internet exposure unless the human explicitly asks for that risk tradeoff
+
+For LAN use, tighten exposure with:
+
+- a trusted server bind address only
+- a single trusted client IP when possible
+- strict `Host` and websocket `Origin` checks when a proxy is used
+- cleanup of temporary processes and metadata
 
 ## Recommended runtime shape
 
-A wrapper script can:
+A launcher should:
 
-1. ensure the tmux session exists
-2. generate a token
-3. choose an unused port
-4. launch the web terminal bound to localhost only
-5. print the local URL
-6. optionally record pid + metadata for cleanup
+1. ensure the `tmux` session exists
+2. generate short-lived secrets
+3. choose or validate ports
+4. launch the backend terminal service
+5. launch the access-control layer if needed
+6. print the connection details and cleanup information
+7. stop automatically at expiry
 
 Pseudo-flow:
 
 ```text
 ensure tmux session
-port = choose random free localhost port
-token = generate strong random token
-launch terminal-web-server(host=127.0.0.1, port=port, token=token, command='tmux attach -t SESSION')
-return local URL
+create short-lived access token
+start terminal backend bound to localhost
+optionally start LAN-facing proxy with access checks
+return connection details
+install TTL cleanup
 ```
 
 ## UX notes
 
-Ideal user message:
+Prefer a short operator-facing output:
 
-- one URL
-- one short warning: local-only, temporary
-- one success criterion: stop when the remote prompt is visible
+- one connection method
+- one expiry time
+- one cleanup command
+- one short safety note
+
+The success criterion should be simple: the human authenticates, then the agent confirms the expected prompt or shell state before continuing.
 
 ## Failure modes
 
-### No terminal-web binary installed
+### Required binaries missing
 
-Return a plain explanation and offer:
+Explain what is missing and offer either:
 
-- fallback to normal tmux handoff, or
+- fallback to plain `tmux` handoff, or
 - installation with approval
 
-### User cannot access localhost on the host machine
+### Browser path unreachable
 
-Do not automatically create an internet-reachable path. Ask first. Prefer local workstation access or a trusted internal-only route.
+Do not automatically create a public route. Prefer:
+
+- localhost access on the host machine
+- trusted LAN access
+- a different handoff mode
 
 ### Session state unclear
 
-Capture pane, look for prompts, and if needed send `Ctrl-C` once before continuing.
+Capture the pane, inspect the prompt, and avoid sending blind commands. If needed, send one interrupt and capture again before continuing.
+
+### Session appears already authenticated
+
+Prefer refusing to relaunch when reuse would be risky. A configurable guard such as `FORBID_REUSE_IF_AUTHENTICATED=1` is a safer default for repeated use.
 
 ## Candidate tools
 
@@ -69,35 +88,35 @@ Pros:
 
 - lightweight
 - common on Linux
-- easy command wrapper
+- easy to wrap around `tmux attach`
 
 Questions to confirm during implementation:
 
-- auth/token flags available on installed version
-- URL and credential format
-- TLS expectations when bound only to localhost
+- installed version behavior
+- auth capabilities on the target host
+- compatibility with local proxying or token gating
 
 ### Wetty
 
 Pros:
 
 - browser terminal purpose-built
-- Node-friendly
+- Node-friendly ecosystem
 
 Questions to confirm during implementation:
 
 - auth support model
-- command attach pattern to tmux
-- install footprint
+- attach pattern to `tmux`
+- install footprint and operational complexity
 
 ## Suggested implementation split
 
-- `SKILL.md`: workflow + guardrails
-- `scripts/start-local-web-terminal.sh` or Python launcher: deterministic setup
-- `references/design-notes.md`: security and design rationale
+- `SKILL.md`: workflow and guardrails
+- `scripts/`: deterministic launchers and cleanup helpers
+- `references/design-notes.md`: rationale and security envelope
 
 ## Non-goals
 
-- embedding terminal directly into OpenClaw UI
+- embedding the terminal directly into a separate product UI
 - public exposure by default
-- persistent shared terminal service with no expiration
+- long-lived shared terminal services with no expiry
