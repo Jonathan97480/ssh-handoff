@@ -22,23 +22,6 @@ It supports three practical modes:
 - `scripts/` — launchers and proxy code
 - `references/` — design notes and usage examples
 
-## Recommended use
-
-For repeated use on a trusted LAN, the recommended mode is:
-
-- `tmux` session per task
-- `ttyd` bound on localhost
-- local proxy with one-shot token
-- firewall limited to the trusted client IP
-- `FORBID_REUSE_IF_AUTHENTICATED=1` by default
-
-## Requirements
-
-- `tmux`
-- `ttyd`
-- `node`
-- `python3`
-
 ## Safety notes
 
 - keep it local-only by default

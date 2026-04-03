@@ -5,42 +5,43 @@ description: Create and reuse a secure shared terminal handoff when a human must
 
 # SSH Handoff
 
-Use this skill to let a human authenticate first, then continue the task in the exact same terminal session as the agent.
+Use this skill when a human must complete a sensitive authentication step first, and the agent should continue in the exact same shell session afterward.
 
-The core idea is simple:
+The core pattern is:
 
 1. keep terminal state in a named `tmux` session
-2. let the human perform the sensitive login step
-3. let the agent resume work in that same shell
+2. let the human attach and authenticate inside that session
+3. capture the pane state
+4. let the agent continue from the same shell
 
-Prefer this skill when the user should not paste credentials into chat and when the agent cannot authenticate directly.
+Prefer this skill when the user should not paste credentials into chat and when direct agent authentication is blocked, undesirable, or less safe than a shared-session handoff.
 
-## Recommended modes
-
-Choose the simplest mode that fits the situation.
+## Choose the simplest mode
 
 ### Mode A — plain tmux handoff
 
-Use when the user already has terminal access to the host machine.
+Use when the human already has terminal access to the host.
 
 Typical flow:
 
-1. create or reuse a named tmux session
-2. ask the user to attach
-3. user logs in or authenticates
-4. agent captures the pane and continues
+1. create or reuse a named `tmux` session
+2. ask the human to attach
+3. let the human authenticate
+4. capture the pane
+5. continue through `tmux`
 
-Example attach command:
+Example:
 
 ```bash
-tmux attach -t blogai-pi
+tmux has-session -t handoff-session 2>/dev/null || tmux new-session -d -s handoff-session
+tmux attach -t handoff-session
 ```
 
-### Mode B — local browser terminal with temporary credentials
+### Mode B — local browser terminal
 
-Use when the user wants a browser-based terminal on the same machine that hosts the service.
+Use when the human wants a browser-based terminal on the same machine that hosts the service.
 
-This mode uses `ttyd` directly and is suitable for:
+This mode uses `ttyd` directly and fits:
 
 - localhost-only access
 - quick temporary sessions
@@ -49,107 +50,28 @@ This mode uses `ttyd` directly and is suitable for:
 Bundled launcher:
 
 ```bash
-./scripts/start-local-web-terminal.sh blogai-pi
+./scripts/start-local-web-terminal.sh handoff-session
 ```
 
-### Mode C — LAN-restricted browser terminal with one-shot URL token
+### Mode C — LAN-restricted browser terminal with one-shot token
 
-Use when the user wants to open the terminal from another machine on the same local network and you want less friction than username/password entry.
+Use when the human opens the terminal from another trusted machine on the same local network and you want less friction than repeated username/password entry.
 
-This is the **recommended daily-use mode** once configured.
+This mode works like this:
 
-It works like this:
-
-1. a tmux session holds the real shell state
-2. `ttyd` runs on localhost only as the terminal backend
+1. a named `tmux` session holds the real shell state
+2. `ttyd` runs on localhost as the terminal backend
 3. a small local proxy exposes a LAN URL with a one-shot `?token=`
-4. the first valid request becomes a browser session via cookie
-5. the agent continues using the same tmux session
+4. the first valid request becomes a browser session through a cookie
+5. the agent continues using the same `tmux` session
 
 Bundled launcher:
 
 ```bash
-./scripts/start-url-token-web-terminal.sh blogai-pi
+./scripts/start-url-token-web-terminal.sh handoff-session
 ```
 
-## Final recommended configuration
-
-For normal repeated use on a trusted local network, keep this setup:
-
-- tmux session name: task-specific, for example `blogai-pi`
-- proxy frontend port: **`48080`**
-- localhost ttyd backend port: **`48081`**
-- firewall rule: allow only the user machine IP to reach `48080`
-- launch service only when needed
-- stop service after use
-- keep the firewall rule if the same trusted client uses it regularly
-
-### Example permanent LAN rule
-
-If the user machine is `192.168.1.30`:
-
-```bash
-sudo ufw allow from 192.168.1.30 to any port 48080 proto tcp
-```
-
-This avoids reopening a new firewall rule every session.
-
-## Quick usage
-
-### Plain tmux handoff
-
-```bash
-tmux has-session -t blogai-pi 2>/dev/null || tmux new-session -d -s blogai-pi
-tmux attach -t blogai-pi
-```
-
-After the user authenticates, inspect and continue:
-
-```bash
-tmux capture-pane -t blogai-pi -p | tail -60
-tmux send-keys -t blogai-pi -l -- 'cd /home/admin-rpi/projects/BlogAi && git status --short'
-sleep 0.1
-tmux send-keys -t blogai-pi Enter
-```
-
-### Local browser mode
-
-```bash
-./scripts/start-local-web-terminal.sh blogai-pi
-```
-
-The script prints:
-
-- URL
-- temporary credentials
-- PID
-- expiry
-- stop command
-
-### Final LAN token mode
-
-Recommended launch:
-
-```bash
-HOST=192.168.1.28 CLIENT_IP=192.168.1.30 PORT=48080 UPSTREAM_PORT=48081 FORBID_REUSE_IF_AUTHENTICATED=1 ./scripts/start-url-token-web-terminal.sh blogai-pi
-```
-
-The script prints:
-
-- URL with one-shot token
-- expiry
-- proxy/backend PIDs
-- UFW allow/delete commands
-
-Example result:
-
-```text
-URL=http://192.168.1.28:48080/?token=...
-```
-
-## Configuration
-
-### Required binaries
+## Requirements
 
 Check these first:
 
@@ -157,36 +79,84 @@ Check these first:
 command -v tmux
 command -v ttyd
 command -v node
+command -v python3
 ```
 
-### Install on Debian / Ubuntu
+Install on Debian / Ubuntu:
 
 ```bash
 sudo apt update && sudo apt install -y tmux ttyd
 ```
 
-`node` must also exist for Mode C because the proxy launcher uses a bundled Node script.
+`node` must also exist for Mode C because the proxy launcher uses the bundled Node script.
 
-### Launcher variables
+## Quick usage
 
-#### `start-local-web-terminal.sh`
+### Create or reuse the session
+
+```bash
+tmux has-session -t handoff-session 2>/dev/null || tmux new-session -d -s handoff-session
+```
+
+### Launch Mode C with placeholders
+
+Use placeholders that match the environment instead of copying real addresses blindly.
+
+```bash
+HOST=<server-ip> CLIENT_IP=<trusted-client-ip> PORT=48080 UPSTREAM_PORT=48081 FORBID_REUSE_IF_AUTHENTICATED=1 ./scripts/start-url-token-web-terminal.sh handoff-session
+```
+
+The launcher prints:
+
+- one-shot URL
+- expiry time
+- proxy and backend PIDs
+- cleanup command
+- optional UFW helper commands
+
+Example with documentation-only IPs:
+
+```bash
+HOST=192.0.2.10 CLIENT_IP=192.0.2.20 PORT=48080 UPSTREAM_PORT=48081 FORBID_REUSE_IF_AUTHENTICATED=1 ./scripts/start-url-token-web-terminal.sh handoff-session
+```
+
+### Resume after authentication
+
+Always inspect the pane before assuming the handoff worked:
+
+```bash
+tmux capture-pane -t handoff-session -p | tail -80
+```
+
+Look for:
+
+- remote hostname or expected prompt
+- expected working directory
+- absence of a password prompt
+- absence of a terminal program that would swallow commands unexpectedly
+
+If uncertain, ask one short confirmation question before continuing.
+
+## Launcher variables
+
+### `start-local-web-terminal.sh`
 
 Supported variables:
 
 - `HOST` — bind address, default `127.0.0.1`
-- `PORT` — optional explicit port, otherwise random free port
+- `PORT` — optional explicit port, otherwise a random free port
 - `TTL_MINUTES` — default `30`
 - `BIND_SCOPE` — metadata only, usually `local` or `lan`
 - `CLIENT_IP` — optional, used only to print UFW helper commands in LAN mode
 
-#### `start-url-token-web-terminal.sh`
+### `start-url-token-web-terminal.sh`
 
 Supported variables:
 
 - `HOST` — proxy bind address, default `127.0.0.1`
-- `PORT` — proxy frontend port, default **`48080`**
-- `UPSTREAM_PORT` — localhost ttyd backend port, default **`48081`**
-- `CLIENT_IP` — optional client IP for UFW helper commands and proxy-side IP filtering
+- `PORT` — proxy frontend port, default `48080`
+- `UPSTREAM_PORT` — localhost `ttyd` backend port, default `48081`
+- `CLIENT_IP` — optional trusted client IP for UFW helper commands and proxy-side IP filtering
 - `TTL_MINUTES` — default `30`
 - `BIND_SCOPE` — metadata only, usually `local` or `lan`
 - `COOKIE_SECURE` — set to `1` when serving through local HTTPS so the session cookie gets the `Secure` flag
@@ -195,97 +165,56 @@ Supported variables:
 - `FORBID_REUSE_IF_AUTHENTICATED` — set to `1` to refuse startup if the tmux pane already looks authenticated
 - `AUTH_GUARD_REGEX` — optional override for the pane-authentication detection regex
 
-If `48080` or `48081` are already occupied, override them explicitly.
+If the default ports are already occupied, override them explicitly.
 
-Example:
+## Use Mode C correctly
 
-```bash
-HOST=192.168.1.28 CLIENT_IP=192.168.1.30 PORT=49080 UPSTREAM_PORT=49081 ./scripts/start-url-token-web-terminal.sh blogai-pi
-```
+1. ensure the `tmux` session exists
+2. launch the token-based terminal
+3. if needed, allow access only from the trusted client IP
+4. send the printed one-shot URL to the human through an appropriate channel
+5. let the human authenticate inside the terminal
+6. capture the pane and verify state
+7. continue through `tmux`
+8. stop the temporary web terminal when done
 
-## How to use Mode C correctly
+## Cleanup
 
-1. ensure the tmux session exists
-2. launch the v5 URL-token terminal
-3. if needed, ensure UFW allows `48080` from the user IP only
-4. send the user the printed URL
-5. user opens the URL and authenticates inside the terminal if needed
-6. agent resumes through tmux
-7. stop the proxy/backend processes when done
-
-### Example end-to-end
+For Mode B, use:
 
 ```bash
-HOST=192.168.1.28 CLIENT_IP=192.168.1.30 PORT=48080 UPSTREAM_PORT=48081 FORBID_REUSE_IF_AUTHENTICATED=1 ./scripts/start-url-token-web-terminal.sh blogai-pi
+./scripts/stop-local-web-terminal.sh <pid> <session-name>
 ```
 
-Then tell the user to open the printed URL.
-
-After they are done, stop the services:
+For Mode C, prefer the printed cleanup command because it removes both temporary processes and the temporary runtime directory:
 
 ```bash
-kill <proxy-pid>
-kill <ttyd-pid>
+TTYD_PID=<ttyd-pid> PROXY_PID=<proxy-pid> RUNTIME_DIR=<runtime-dir> <cleanup-script>
 ```
 
-## Verify handoff before continuing
+If that command is unavailable, killing the printed proxy and backend PIDs is still acceptable.
 
-Always capture the pane before assuming authentication worked:
-
-```bash
-tmux capture-pane -t blogai-pi -p | tail -80
-```
-
-Look for:
-
-- remote hostname or prompt
-- expected working directory
-- absence of password prompt
-
-If uncertain, ask one short confirmation question.
+The launcher also installs automatic TTL cleanup for the proxy, `ttyd`, and temporary files. Leave the `tmux` session alive if it may be reused.
 
 ## Guardrails
 
 - Keep exposure local-only by default.
 - If LAN exposure is needed, restrict it to one trusted client IP only.
 - Do not expose the terminal through a public tunnel or reverse proxy.
-- Do not ask the user to paste passwords, OTP codes, or private keys into chat if the handoff can avoid it.
+- Do not ask the human to paste passwords, OTP codes, or private keys into chat if the handoff can avoid it.
 - Use short-lived access material for browser modes.
-- Prefer one tmux session per target/task.
-- Inspect pane state before sending more commands.
+- Prefer one `tmux` session per target or task.
+- Capture pane state before sending more commands.
 - Ask before destructive actions.
-- Enable `FORBID_REUSE_IF_AUTHENTICATED=1` by default for normal use; disable it only when you intentionally want to reopen an already-authenticated session.
-- Treat the printed URL as sensitive until expiry; do not log or repost it unnecessarily.
+- Enable `FORBID_REUSE_IF_AUTHENTICATED=1` by default for normal use; disable it only when reopening an already-authenticated session is intentional.
+- Treat the printed one-shot URL as sensitive until expiry.
 - Expect the proxy to reject mismatched `Host`, websocket `Origin`, or client IP when those checks are configured.
-
-## Cleanup
-
-To stop a temporary web-terminal process while preserving tmux, use:
-
-```bash
-./scripts/stop-local-web-terminal.sh <pid> <session-name>
-```
-
-For Mode C, prefer the printed cleanup command because it removes both processes and the temporary runtime directory:
-
-```bash
-TTYD_PID=<ttyd-pid> PROXY_PID=<proxy-pid> RUNTIME_DIR=<runtime-dir> <cleanup-script>
-```
-
-If you lose that command, killing both printed PIDs is still acceptable:
-
-```bash
-kill <proxy-pid>
-kill <ttyd-pid>
-```
-
-The launcher also installs automatic TTL cleanup for proxy, ttyd, and temporary files. Leave the tmux session alive if it may be reused.
 
 ## References
 
 Read these when needed:
 
-- `references/examples.md` — concrete usage examples
+- `references/examples.md` — generic usage examples
 - `references/design-notes.md` — security and design envelope
 - `references/lan-restricted.md` — LAN-only restricted-IP pattern
 
