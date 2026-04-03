@@ -18,6 +18,8 @@ Prefer this skill when the user should not paste credentials into chat and when 
 
 ## Choose the simplest mode
 
+Prefer Mode A unless browser access is actually needed.
+
 ### Mode A — plain tmux handoff
 
 Use when the human already has terminal access to the host.
@@ -100,7 +102,7 @@ tmux has-session -t handoff-session 2>/dev/null || tmux new-session -d -s handof
 
 ### Launch Mode C with placeholders
 
-Use placeholders that match the environment instead of copying real addresses blindly.
+Use placeholders that match the environment instead of copying real addresses blindly. The `192.0.2.x` addresses below are documentation-only example addresses.
 
 ```bash
 HOST=<server-ip> CLIENT_IP=<trusted-client-ip> PORT=48080 UPSTREAM_PORT=48081 FORBID_REUSE_IF_AUTHENTICATED=1 ./scripts/start-url-token-web-terminal.sh handoff-session

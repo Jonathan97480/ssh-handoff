@@ -16,11 +16,23 @@ It supports three practical modes:
 - local browser terminal via `ttyd`
 - LAN-restricted browser terminal with one-shot URL token
 
+## Quick start
+
+1. prefer plain `tmux` handoff when browser access is not needed
+2. use the local browser mode for temporary same-machine access
+3. use the LAN token mode only for trusted local-network access
+4. verify the shell state with `tmux capture-pane` before continuing
+5. clean up the temporary web terminal when the handoff is done
+
 ## Included files
 
 - `SKILL.md` — operational instructions for the agent
 - `scripts/` — launchers and proxy code
 - `references/` — design notes and usage examples
+
+## Notes on examples
+
+Documentation examples may use `192.0.2.x` addresses. These are placeholder documentation-only IPs from the TEST-NET range and must be replaced with real local addresses.
 
 ## Safety notes
 
