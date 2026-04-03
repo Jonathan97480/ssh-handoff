@@ -165,9 +165,14 @@ Supported variables:
 - `EXPECTED_HOST` — strict allowed `Host` header, default `<HOST>:<PORT>`
 - `EXPECTED_ORIGIN` — strict allowed websocket `Origin`, default derived from host and cookie mode
 - `FORBID_REUSE_IF_AUTHENTICATED` — set to `1` to refuse startup if the tmux pane already looks authenticated
+- `REPLACE_EXISTING` — set to `1` only after the human explicitly approves replacing the current web handoff for the same `SESSION_NAME`; otherwise the launcher prints the existing URL/PIDs/cleanup command and exits without touching the running session
 - `AUTH_GUARD_REGEX` — optional override for the pane-authentication detection regex
 
 If the default ports are already occupied, override them explicitly.
+
+When a handoff already exists for the same `SESSION_NAME`, the launcher does not silently start a second one: it reports the existing session details and exits with `READY=0`. Ask the human whether to replace it. Use `REPLACE_EXISTING=1` only after explicit approval.
+
+If the requested proxy or upstream port is already occupied, the launcher also exits with `READY=0` and reports a port conflict instead of killing anything automatically. In that case, either get approval to replace the conflicting session or relaunch on another port and update firewall rules if LAN access is involved.
 
 ## Use Mode C correctly
 
@@ -178,7 +183,8 @@ If the default ports are already occupied, override them explicitly.
 5. let the human authenticate inside the terminal
 6. capture the pane and verify state
 7. continue through `tmux`
-8. stop the temporary web terminal when done
+8. if the launcher reports an existing session or a port conflict, ask whether to replace it or use a different port
+9. stop the temporary web terminal when done
 
 ## Cleanup
 

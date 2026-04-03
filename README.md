@@ -22,7 +22,9 @@ It supports three practical modes:
 2. use the local browser mode for temporary same-machine access
 3. use the LAN token mode only for trusted local-network access
 4. verify the shell state with `tmux capture-pane` before continuing
-5. clean up the temporary web terminal when the handoff is done
+5. if a session already exists, ask whether to replace it before using `REPLACE_EXISTING=1`
+6. if the requested port is already busy, either get approval to replace the conflicting session or relaunch on another port and update firewall rules if needed
+7. clean up the temporary web terminal when the handoff is done
 
 ## Included files
 
@@ -40,6 +42,7 @@ Documentation examples may use `192.0.2.x` addresses. These are placeholder docu
 - if exposed on LAN, restrict access to one trusted client IP
 - do not expose through a public tunnel or reverse proxy
 - use short TTLs and clean up after use
+- do not replace an existing live session without the human's approval
 
 ## Repository scope
 
